@@ -30,6 +30,7 @@ function init() {
   var textureGrass = new THREE.TextureLoader().load("/MovingPlatforms/img/1.png");
   textureGrass.wrapS = THREE.RepeatWrapping;
   textureGrass.wrapT = THREE.RepeatWrapping;
+  textureGrass.minFilter = THREE.NearestFilter;
   textureGrass.repeat.set(10, 10);
 
   materialT = new THREE.MeshBasicMaterial({map: textureGrass});
@@ -37,6 +38,8 @@ function init() {
   var pink = new THREE.TextureLoader().load("/MovingPlatforms/img/2.png");
   pink.wrapS = THREE.RepeatWrapping;
   pink.wrapT = THREE.RepeatWrapping;
+  pink.minFilter = THREE.NearestFilter;
+
   pink.repeat.set(1, 1);
 
   materialP = new THREE.MeshBasicMaterial({map: pink, transparent:true});
@@ -48,7 +51,7 @@ function init() {
 
   materialC = new THREE.MeshBasicMaterial({map: cloudTexture, transparent:true});
 
-  var materialBall2 = new THREE.MeshBasicMaterial( {color: 0xffe845, opacity: 0.8, transparent:true} );
+  var materialBall2 = new THREE.MeshBasicMaterial( {color: 0xffffff, opacity: 1.0, transparent:true} );
 
   // setting the scence
   var scene = new THREE.Scene();
@@ -58,7 +61,7 @@ function init() {
   camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 
   renderer = new THREE.WebGLRenderer();
-  renderer.setClearColor(new THREE.Color(0xd394ff )); // set background color
+  renderer.setClearColor(new THREE.Color(0x75C4B8 )); // set background color
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
 
@@ -72,7 +75,7 @@ function init() {
   plane.position.y = 0;
   plane.position.z = 0;
 
-  scene.add(plane);
+  //scene.add(plane);
 
   camera.position.x = -180;
   camera.position.y = 30;
@@ -176,6 +179,12 @@ function init() {
 
   var time = 0;
 
+  let y = 0;
+  let x = 0;
+  let z = 0;
+
+  let isCrouched = false;
+
   render();
   function render() {
 
@@ -189,46 +198,147 @@ function init() {
       coin.rotation.x += player.turnSpeed;
     });
 
+  
+
     // animating the character
     balls.forEach((ball, ndx) => {
       if(ndx == 0){
-        ball.position.y = 10 + ( 10 * Math.abs(Math.sin(step)));
+        ball.position.y = 10 + ( 1 * Math.abs(Math.sin(step)));
       }
       else {
-        ball.position.y = 15 + ( 10 * Math.abs(Math.sin(step)));
-      }
+        ball.position.y = 15 + ( 1 * Math.abs(Math.sin(step)));
+      } 
+      ball.position.z = z;  
+    });
 
-      // Keyboard movement inputs
-      if(keyboard[68]){ // D key: move forward
-        console.log("d");
-        ball.position.x -= Math.sin(ball.rotation.y) * player.speed;
-        ball.position.z -= -Math.cos(ball.rotation.y) * player.speed;
+    // checking if need to stay crouched
+    paths.forEach(function(path){
+      if(((balls[0].position.y >= path.position.y && balls[0].position.y <= path.position.y + 10) 
+      || (balls[0].position.y+12 > path.position.y && balls[0].position.y < path.position.y + 10))  
+      &&((balls[0].position.z >= path.position.z && balls[0].position.z <= path.position.z + 30) || (balls[0].position.z + 20 >= path.position.z && balls[0].position.z <= path.position.z + 30)) ){
+        y = path.position.y-10;
+        balls[2].position.y = y;
+        balls[1].position.y = y; 
+        
       }
-      if(keyboard[65]){// A key: move backward
-        ball.position.x += Math.sin(ball.rotation.y) * player.speed;
-        ball.position.z += -Math.cos(ball.rotation.y) * player.speed;
-      }
+    });
 
-      if(keyboard[87]){ // W key: jump up
-        ball.position.y += 10;
-        ball.position.y -= Math.sin(ball.rotation.y) * player.speed;
-        ball.position.z -= -Math.cos(ball.rotation.y) * player.speed;
-      }
+      // check if touching path
+      paths.forEach(function(path, i){
+        if(((balls[0].position.y >= path.position.y  && balls[0].position.y < path.position.y + 20) &&((balls[0].position.z >= path.position.z && balls[0].position.z <= path.position.z + 30) || (balls[0].position.z + 20 >= path.position.z && balls[0].position.z <= path.position.z + 30)) )){
+          y+= path.position.y;
+          // console.log("ontop")
+          // balls.forEach((ball, ndx) => {
+          
+          //   ball.position.y += y;  
+          // });
+        }
+      });
 
-      if(keyboard[83]){ // S key: crouch down
-        ball.position.y =10;
-        ball.position.y -= Math.sin(ball.rotation.y) * player.speed;
-        ball.position.z -= -Math.cos(ball.rotation.y) * player.speed;
-      }
+      coins.forEach(function(coin){
+        if(((balls[0].position.y >= coin.position.y && balls[0].position.y <= coin.position.y + 10) 
+        || (balls[0].position.y+12 > coin.position.y && balls[0].position.y < coin.position.y + 10))  
+        &&((balls[0].position.z >= coin.position.z && balls[0].position.z <= coin.position.z + 30) || (balls[0].position.z + 5 >= coin.position.z && balls[0].position.z <= coin.position.z + 30)) ){
+          coin.position.y =  10 + ( 10 * Math.abs(Math.sin(step)));
+          if(coin.position.y > 10){
+            scene.remove(coin);
 
-      // Keyboard turn inputs
-      if(keyboard[37]){ // left arrow key
-        camera.rotation.y -= player.turnSpeed;
+          }
+
+
+          
+        }
+      });
+
+   
+
+    // Keyboard movement inputs
+    if(keyboard[68]){ // D key: move forward
+      let pathIsFree = true
+   
+      paths.forEach(function(path){
+        if(((balls[0].position.y >= path.position.y && balls[0].position.y <= path.position.y + 10) 
+        || (balls[0].position.y+12 > path.position.y && balls[0].position.y < path.position.y + 10))  
+        &&((balls[0].position.z >= path.position.z && balls[0].position.z <= path.position.z + 30) || (balls[0].position.z + 20 >= path.position.z && balls[0].position.z <= path.position.z + 30)) ){
+          pathIsFree = false;
+        }
+      });
+      if(pathIsFree == true)
+      {
+        // balls[0].position.x -= Math.sin(balls[0].rotation.y) * player.speed;
+        // balls[0].position.z -= -Math.cos(balls[0].rotation.y) * player.speed;
+        z -= -Math.cos(balls[0].rotation.y) * player.speed;
+
       }
-      if(keyboard[39]){ // right arrow key
-        camera.rotation.y += player.turnSpeed;
+     
+    }
+    if(keyboard[65]){// A key: move backward
+    let pathIsFree = true
+   
+      paths.forEach(function(path){
+        if(((balls[0].position.y >= path.position.y && balls[0].position.y <= path.position.y + 10) 
+        || (balls[0].position.y+12 > path.position.y && balls[0].position.y < path.position.y + 10))  
+        &&((balls[0].position.z >= path.position.z && balls[0].position.z <= path.position.z + 30) || (balls[0].position.z + 20 >= path.position.z && balls[0].position.z <= path.position.z + 30)) ){
+          console.log("ball " , balls[0].position.y + 10);   
+          pathIsFree = false;
+        }
+      });
+      if(pathIsFree == true)
+      {
+        // balls[0].position.x -= Math.sin(balls[0].rotation.y) * player.speed;
+        // balls[0].position.z -= -Math.cos(balls[0].rotation.y) * player.speed;
+        z += -Math.cos(balls[0].rotation.y) * player.speed;
+
       }
-});
+    }
+    //   ball.position.x += Math.sin(ball.rotation.y) * player.speed;
+    //   ball.position.z += -Math.cos(ball.rotation.y) * player.speed;
+    // }
+
+    if(keyboard[87]){ // W key: jump up
+      if(isCrouched == false){
+      balls.forEach((ball, ndx) => {
+       
+
+        ball.position.y = 10 + ( 24 * Math.abs(Math.sin(step)));
+
+        paths.forEach(function(path){
+          if(((balls[0].position.y >= path.position.y && balls[0].position.y <= path.position.y + 10) 
+          || (balls[0].position.y+12 > path.position.y && balls[0].position.y < path.position.y + 10))  
+          &&((balls[0].position.z >= path.position.z && balls[0].position.z <= path.position.z + 30) || (balls[0].position.z + 20 >= path.position.z && balls[0].position.z <= path.position.z + 30)) ){
+            y = 25;
+          }
+        });
+
+         // z -= -Math.cos(ball.rotation.y) * player.speed; 
+      });
+    }
+    
+     // y+=15;
+      // balls[0].position.y -= Math.sin(balls[0].rotation.y) * player.speed;
+      // balls[0].position.z -= -Math.cos(balls[0].rotation.y) * player.speed;
+    }
+
+    if(keyboard[83]){ // S key: crouch down
+      y =10;
+      y -= Math.sin(balls[0].rotation.y) * player.speed;
+      z -= -Math.cos(balls[0].rotation.y) * player.speed;
+      balls.forEach((ball, ndx) => {
+        
+        ball.position.y = y;  
+      });
+    }
+
+  
+    
+
+    // Keyboard turn inputs
+    if(keyboard[37]){ // left arrow key
+      camera.rotation.y -= player.turnSpeed;
+    }
+    if(keyboard[39]){ // right arrow key
+      camera.rotation.y += player.turnSpeed;
+    }
 
     // Setting movement for the platforms
     paths.forEach((path, ndx) => {
